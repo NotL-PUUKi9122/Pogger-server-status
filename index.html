@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cobblemon Server Status</title>
+<title>Pogger Server Status</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#f7f7fb;background:#090b12}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#2b164d 0,#111322 38%,#090b12 75%);display:grid;place-items:center;padding:24px}
@@ -21,7 +21,7 @@ button{display:block;margin:18px auto 0;background:#8d4dff;color:white;border:0;
 </head>
 <body>
 <main class="card" id="app">
-  <h1>🟣 Cobblemon Server</h1>
+  <h1>🟣 Pogger Server</h1>
   <p class="sub">Minecraft Java · GPORTAL</p>
   <div id="status" class="status"><span class="dot"></span><span>Checking server…</span></div>
   <section class="stats">
@@ -44,7 +44,8 @@ button{display:block;margin:18px auto 0;background:#8d4dff;color:white;border:0;
 const SERVER = "167.86.104.112:25985";
 const ENDPOINT = `https://api.mcstatus.io/v2/status/java/${SERVER}`;
 const PING_ENDPOINT = `https://www.minecraftpinger.com/api/v1/${SERVER}`;
-const HISTORY_KEY = "cobblemon-status-player-history-v1";
+const HISTORY_KEY = "pogger-status-player-history-v1";
+const LEGACY_HISTORY_KEY = "cobblemon-status-player-history-v1";
 let lastResult = null;
 let refreshInFlight = false;
 let pingInFlight = false;
@@ -154,7 +155,13 @@ function playerKey(player){
 }
 function loadPlayerHistory(){
   try{
-    const data=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");
+    const saved=localStorage.getItem(HISTORY_KEY);
+    const legacy=saved===null?localStorage.getItem(LEGACY_HISTORY_KEY):null;
+    const data=JSON.parse(saved??legacy??"[]");
+    if(saved===null&&legacy!==null){
+      localStorage.setItem(HISTORY_KEY,JSON.stringify(data));
+      localStorage.removeItem(LEGACY_HISTORY_KEY);
+    }
     return Array.isArray(data)?data.filter(player=>player&&typeof player.name==="string"&&typeof player.lastSeen==="string").slice(-200):[];
   }catch(e){return [];}
 }
