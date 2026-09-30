@@ -29,21 +29,29 @@ button{margin-top:18px;background:#8d4dff;color:white;border:0;border-radius:12p
   </section>
   <h2>Players online</h2>
   <div id="players" class="players"><span class="empty">Loading player list…</span></div>
-  <button onclick="refresh()">Refresh now</button>
+  <button id="refreshButton" onclick="refresh()">Refresh now</button>
   <div id="updated" class="meta"></div>
 </main>
 <script>
 const SERVER = "167.86.104.112:25985";
-const ENDPOINT = `https://api.mcsrvstat.us/3/${SERVER}`;
+const ENDPOINT = `https://api.mcstatus.io/v2/status/java/${SERVER}`;
 let lastResult = null;
-let consecutiveOfflineResults = 0;
+let refreshInFlight = false;
 
 async function refresh(){
+  if(refreshInFlight) return;
+  refreshInFlight=true;
   const status=document.getElementById("status"), players=document.getElementById("players");
+  const button=document.getElementById("refreshButton");
+  button.disabled=true;
+  button.textContent="Refreshing…";
   if(!lastResult){
     status.className="status";
     status.innerHTML='<span class="dot"></span><span>Checking server…</span>';
     players.innerHTML='<span class="empty">Loading player list…</span>';
+  }else{
+    status.className=`status ${lastResult.online?"online":"offline"}`;
+    status.innerHTML=`<span class="dot"></span><span>${lastResult.online?"ONLINE":"OFFLINE"} · refreshing</span>`;
   }
   try{
     const controller=new AbortController();
@@ -55,35 +63,20 @@ async function refresh(){
     const d=await r.json();
     if(typeof d.online!=="boolean") throw new Error("Invalid status response");
     const online=!!d.online;
-
-    // A single negative probe can be transient. Confirm an offline transition
-    // before replacing the last known online snapshot.
-    if(!online && lastResult?.online){
-      consecutiveOfflineResults++;
-      if(consecutiveOfflineResults<2){
-        status.className="status online";
-        status.innerHTML='<span class="dot"></span><span>ONLINE · verifying status</span>';
-        document.getElementById("updated").textContent="Last confirmed online: "+lastResult.checkedAt.toLocaleTimeString()+" · checking again";
-        return;
-      }
-    }else if(online){
-      consecutiveOfflineResults=0;
-    }
-
-    lastResult={online,data:d,checkedAt:new Date()};
+    const sourceCheckedAt=Number.isFinite(d.retrieved_at)?new Date(d.retrieved_at):new Date();
+    lastResult={online,data:d,checkedAt:new Date(),sourceCheckedAt};
     document.getElementById("app").classList.toggle("online",online);
     document.getElementById("app").classList.toggle("offline",!online);
     status.innerHTML=`<span class="dot"></span><span>${online?"ONLINE":"OFFLINE"}</span>`;
     const p=d.players||{};
     document.getElementById("count").textContent=online?`${p.online ?? 0}${p.max!=null?"/"+p.max:""}`:"0";
     const names=Array.isArray(p.list)?p.list:[];
-    const playerNames=names.map(player=>typeof player==="string"?player:player?.name).filter(name=>typeof name==="string"&&name.length>0);
+    const playerNames=names.map(player=>typeof player==="string"?player:(player?.name_clean??player?.name_raw??player?.name)).filter(name=>typeof name==="string"&&name.length>0);
     players.innerHTML=playerNames.length
       ? playerNames.map(n=>`<span class="player">${escapeHtml(n)}</span>`).join("")
       : `<span class="empty">${online?"No player names returned by the status service.":"Nobody is online."}</span>`;
-    document.getElementById("updated").textContent="Last checked: "+lastResult.checkedAt.toLocaleTimeString()+" · status service may cache data for up to 5 minutes";
+    document.getElementById("updated").textContent="Server data checked: "+lastResult.sourceCheckedAt.toLocaleTimeString()+" · provider may cache for up to 1 minute";
   }catch(e){
-    consecutiveOfflineResults=0;
     if(lastResult){
       const age=Math.max(1,Math.floor((Date.now()-lastResult.checkedAt.getTime())/60000));
       status.className=`status ${lastResult.online?"online":"offline"}`;
@@ -98,11 +91,15 @@ async function refresh(){
       players.innerHTML='<span class="empty">Could not retrieve live server data.</span>';
       document.getElementById("updated").textContent="Last check failed: "+new Date().toLocaleTimeString();
     }
+  }finally{
+    refreshInFlight=false;
+    button.disabled=false;
+    button.textContent="Refresh now";
   }
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
 refresh();
-setInterval(refresh,30000);
+setInterval(refresh,15000);
 </script>
 </body>
 </html>
