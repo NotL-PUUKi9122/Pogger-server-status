@@ -14,7 +14,7 @@ h1{margin:0 0 6px;font-size:clamp(28px,6vw,44px);text-align:center}.sub{color:#a
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}.box{padding:20px;border-radius:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08)}.num{font-size:34px;font-weight:800}.version-num{font-size:34px;overflow-wrap:anywhere}.label{color:#9ea5bd;margin-top:4px}
 h2{font-size:20px;margin:28px 0 12px}.players{display:flex;flex-wrap:wrap;gap:10px;min-height:44px}.players[hidden]{display:none}.player{display:inline-flex;align-items:center;gap:9px;padding:8px 12px;border-radius:12px;background:#8d4dff22;border:1px solid #9a65ff55;font-weight:650}.player-head{width:32px;height:32px;flex:none;image-rendering:pixelated;border-radius:4px}
 .player-tabs{display:flex;gap:8px;margin:0 0 12px}.player-tab{margin:0;padding:9px 13px;background:#ffffff0d;border:1px solid #ffffff16;color:#aeb3c7}.player-tab[aria-selected="true"]{background:#8d4dff;color:white;border-color:#9a65ff}.player-detail{display:flex;flex-direction:column;gap:3px}.player-detail small{font-size:12px;color:#aeb3c7;font-weight:500}
-.empty{color:#9299ae;padding:12px 0}.meta{color:#7f869b;font-size:13px;margin-top:24px}.credits{color:#7f869b;font-size:12px;margin-top:7px}.credits a{color:#aeb3c7}
+.empty{color:#9299ae;padding:12px 0}.meta{color:#7f869b;font-size:13px;margin-top:24px}
 button{display:block;margin:18px auto 0;background:#8d4dff;color:white;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}
 @media(max-width:520px){.stats{grid-template-columns:1fr}.card{padding:22px}.status{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px;font-size:16px}.status-main{gap:7px}.dot{width:11px;height:11px}.refresh-inline,.ping-inline{font-size:12px}}
 </style>
@@ -36,9 +36,7 @@ button{display:block;margin:18px auto 0;background:#8d4dff;color:white;border:0;
   </div>
   <div id="players" class="players"><span class="empty">Loading player list…</span></div>
   <div id="offlinePlayers" class="players" hidden></div>
-  <div class="meta">Player history is saved in this browser and records names only while this page is open.</div>
   <div id="updated" class="meta"></div>
-  <div class="credits">Ping data provided by <a href="https://www.minecraftpinger.com" target="_blank" rel="noopener">MinecraftPinger</a>.</div>
 </main>
 <script>
 const SERVER = "167.86.104.112:25985";
@@ -109,13 +107,13 @@ async function refresh(){
     players.innerHTML=playerEntries.length
       ? playerEntries.map(({name,uuid})=>`<span class="player">${playerAvatarMarkup(name,uuid)}<span>${escapeHtml(name)}</span></span>`).join("")
       : `<span class="empty">${online&&p.online>0?"Players are online, but the status service did not return their names.":"Nobody is online."}</span>`;
-    document.getElementById("updated").textContent="Server data checked: "+lastResult.sourceCheckedAt.toLocaleTimeString()+" · provider may cache for up to 1 minute";
+    document.getElementById("updated").textContent="Last refreshed: "+lastResult.sourceCheckedAt.toLocaleTimeString();
   }catch(e){
     if(lastResult){
       lastRequestFailed=true;
       renderStatus();
       const age=Math.max(1,Math.floor((Date.now()-lastResult.checkedAt.getTime())/60000));
-      document.getElementById("updated").textContent=`Refresh failed; last successful check ${age} minute${age===1?"":"s"} ago.`;
+      document.getElementById("updated").textContent=`Refresh failed. Last successful refresh was ${age} minute${age===1?"":"s"} ago.`;
     }else{
       serverUnavailable=true;
       renderStatus();
@@ -123,7 +121,7 @@ async function refresh(){
       document.getElementById("app").classList.add("offline");
       document.getElementById("count").textContent="—";
       players.innerHTML='<span class="empty">Could not retrieve live server data.</span>';
-      document.getElementById("updated").textContent="Last check failed: "+new Date().toLocaleTimeString();
+      document.getElementById("updated").textContent="Last refresh failed: "+new Date().toLocaleTimeString();
     }
   }finally{
     refreshInFlight=false;
@@ -199,7 +197,7 @@ function renderOfflinePlayers(history){
         const dateText=Number.isNaN(lastSeen.getTime())?"Unknown":lastSeen.toLocaleString();
         return `<span class="player">${playerAvatarMarkup(player.name,player.uuid)}<span class="player-detail"><span>${escapeHtml(player.name)}</span><small>Last seen online: ${escapeHtml(dateText)}</small></span></span>`;
       }).join("")
-    : '<span class="empty">No offline players have been recorded on this browser yet.</span>';
+    : '<span class="empty">No offline players yet.</span>';
 }
 function showPlayerTab(tab){
   const online=tab==="online";
