@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cobblemon Server Status</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#f7f7fb;background:#090b12}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#2b164d 0,#111322 38%,#090b12 75%);display:grid;place-items:center;padding:24px}
+.card{width:min(760px,100%);background:rgba(20,22,34,.82);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:28px;box-shadow:0 24px 80px #0008;backdrop-filter:blur(16px)}
+h1{margin:0 0 6px;font-size:clamp(28px,6vw,44px)}.sub{color:#aeb3c7;margin:0 0 26px}
+.status{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700}.dot{width:14px;height:14px;border-radius:50%;background:#777;box-shadow:0 0 18px #777}
+.online .dot{background:#42e58a;box-shadow:0 0 18px #42e58a}.offline .dot{background:#ff5b6e;box-shadow:0 0 18px #ff5b6e}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}.box{padding:20px;border-radius:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08)}.num{font-size:34px;font-weight:800}.label{color:#9ea5bd;margin-top:4px}
+h2{font-size:20px;margin:28px 0 12px}.players{display:flex;flex-wrap:wrap;gap:10px;min-height:44px}.player{padding:10px 13px;border-radius:12px;background:#8d4dff22;border:1px solid #9a65ff55;font-weight:650}
+.empty{color:#9299ae;padding:12px 0}.meta{color:#7f869b;font-size:13px;margin-top:24px}
+button{margin-top:18px;background:#8d4dff;color:white;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}
+@media(max-width:520px){.stats{grid-template-columns:1fr}.card{padding:22px}}
+</style>
+</head>
+<body>
+<main class="card" id="app">
+  <h1>🟣 Cobblemon Server</h1>
+  <p class="sub">Minecraft Java 1.21.1 · GPORTAL</p>
+  <div id="status" class="status"><span class="dot"></span><span>Checking server…</span></div>
+  <section class="stats">
+    <div class="box"><div id="count" class="num">—</div><div class="label">Players online</div></div>
+    <div class="box"><div id="version" class="num">1.21.1</div><div class="label">Minecraft version</div></div>
+  </section>
+  <h2>Players online</h2>
+  <div id="players" class="players"><span class="empty">Loading player list…</span></div>
+  <button onclick="refresh()">Refresh now</button>
+  <div id="updated" class="meta"></div>
+</main>
+<script>
+const SERVER = "167.86.104.112:25985";
+const ENDPOINT = `https://api.mcsrvstat.us/3/${SERVER}`;
+
+async function refresh(){
+  const status=document.getElementById("status"), players=document.getElementById("players");
+  status.className="status"; status.innerHTML='<span class="dot"></span><span>Checking server…</span>';
+  document.getElementById("count").textContent="—";
+  players.innerHTML='<span class="empty">Loading player list…</span>';
+  try{
+    const r=await fetch(ENDPOINT,{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    const online=!!d.online;
+    document.getElementById("app").classList.toggle("online",online);
+    document.getElementById("app").classList.toggle("offline",!online);
+    status.innerHTML=`<span class="dot"></span><span>${online?"ONLINE":"OFFLINE"}</span>`;
+    const p=d.players||{};
+    document.getElementById("count").textContent=online?`${p.online ?? 0}${p.max!=null?"/"+p.max:""}`:"0";
+    const names=Array.isArray(p.list)?p.list:[];
+    players.innerHTML=names.length
+      ? names.map(n=>`<span class="player">${escapeHtml(n)}</span>`).join("")
+      : `<span class="empty">${online?"No player names returned by the status service.":"Nobody is online."}</span>`;
+    document.getElementById("updated").textContent="Last checked: "+new Date().toLocaleTimeString();
+  }catch(e){
+    document.getElementById("app").classList.add("offline");
+    status.innerHTML='<span class="dot"></span><span>UNREACHABLE</span>';
+    players.innerHTML='<span class="empty">Could not retrieve live server data.</span>';
+    document.getElementById("updated").textContent="Last check failed: "+new Date().toLocaleTimeString();
+  }
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
+refresh();
+setInterval(refresh,30000);
+</script>
+</body>
+</html>
