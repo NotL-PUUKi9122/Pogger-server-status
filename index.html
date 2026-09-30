@@ -9,11 +9,11 @@
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#2b164d 0,#111322 38%,#090b12 75%);display:grid;place-items:center;padding:24px}
 .card{width:min(760px,100%);background:rgba(20,22,34,.82);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:28px;box-shadow:0 24px 80px #0008;backdrop-filter:blur(16px)}
 h1{margin:0 0 6px;font-size:clamp(28px,6vw,44px)}.sub{color:#aeb3c7;margin:0 0 26px}
-.status{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700}.dot{width:14px;height:14px;border-radius:50%;background:#777;box-shadow:0 0 18px #777}
+.status{display:flex;align-items:center;flex-wrap:wrap;gap:12px;font-size:22px;font-weight:700}.ping-inline{font-size:16px;color:#aeb3c7;font-weight:650}.dot{width:14px;height:14px;border-radius:50%;background:#777;box-shadow:0 0 18px #777}
 .online .dot{background:#42e58a;box-shadow:0 0 18px #42e58a}.offline .dot{background:#ff5b6e;box-shadow:0 0 18px #ff5b6e}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}.box{padding:20px;border-radius:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08)}.num{font-size:34px;font-weight:800}.label{color:#9ea5bd;margin-top:4px}
 h2{font-size:20px;margin:28px 0 12px}.players{display:flex;flex-wrap:wrap;gap:10px;min-height:44px}.player{display:inline-flex;align-items:center;gap:9px;padding:8px 12px;border-radius:12px;background:#8d4dff22;border:1px solid #9a65ff55;font-weight:650}.player-head{width:32px;height:32px;flex:none;image-rendering:pixelated;border-radius:4px}
-.version-num{font-size:28px;margin-top:14px}.player-tabs{display:flex;gap:8px;margin:0 0 12px}.player-tab{margin:0;padding:9px 13px;background:#ffffff0d;border:1px solid #ffffff16;color:#aeb3c7}.player-tab[aria-selected="true"]{background:#8d4dff;color:white;border-color:#9a65ff}.player-detail{display:flex;flex-direction:column;gap:3px}.player-detail small{font-size:12px;color:#aeb3c7;font-weight:500}
+.player-tabs{display:flex;gap:8px;margin:0 0 12px}.player-tab{margin:0;padding:9px 13px;background:#ffffff0d;border:1px solid #ffffff16;color:#aeb3c7}.player-tab[aria-selected="true"]{background:#8d4dff;color:white;border-color:#9a65ff}.player-detail{display:flex;flex-direction:column;gap:3px}.player-detail small{font-size:12px;color:#aeb3c7;font-weight:500}
 .empty{color:#9299ae;padding:12px 0}.meta{color:#7f869b;font-size:13px;margin-top:24px}.credits{color:#7f869b;font-size:12px;margin-top:7px}.credits a{color:#aeb3c7}
 button{margin-top:18px;background:#8d4dff;color:white;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}
 @media(max-width:520px){.stats{grid-template-columns:1fr}.card{padding:22px}}
@@ -26,7 +26,7 @@ button{margin-top:18px;background:#8d4dff;color:white;border:0;border-radius:12p
   <div id="status" class="status"><span class="dot"></span><span>Checking server…</span></div>
   <section class="stats">
     <div class="box"><div id="count" class="num">—</div><div class="label">Players online</div></div>
-    <div class="box"><div id="ping" class="num">—</div><div class="label">Server ping</div><div id="version" class="num version-num">1.21.1</div><div class="label">Minecraft version</div></div>
+    <div class="box"><div id="version" class="num">1.21.1</div><div class="label">Minecraft version</div></div>
   </section>
   <h2>Players</h2>
   <div class="player-tabs" role="tablist" aria-label="Player status">
@@ -48,22 +48,32 @@ const HISTORY_KEY = "cobblemon-status-player-history-v1";
 let lastResult = null;
 let refreshInFlight = false;
 let pingInFlight = false;
+let lastPing = null;
+let lastRequestFailed = false;
+let serverUnavailable = false;
+
+function renderStatus(){
+  const status=document.getElementById("status");
+  const online=lastResult?.online;
+  const state=lastResult?(online?"ONLINE":"OFFLINE"):serverUnavailable?"UNREACHABLE":"Checking server…";
+  const details=[];
+  if(refreshInFlight&&lastResult) details.push("Refreshing");
+  if(lastRequestFailed&&lastResult) details.push("showing last result");
+  status.className=lastResult?`status ${online?"online":"offline"}`:serverUnavailable?"status offline":"status";
+  status.innerHTML=`<span class="dot"></span><span>${[state,...details].join(" · ")}</span>${Number.isFinite(lastPing)?`<span class="ping-inline">· ping ${lastPing} ms</span>`:""}`;
+}
 
 async function refresh(){
   if(refreshInFlight) return;
   refreshInFlight=true;
-  const status=document.getElementById("status"), players=document.getElementById("players");
+  const players=document.getElementById("players");
   const button=document.getElementById("refreshButton");
   button.disabled=true;
   button.textContent="Refreshing…";
   refreshPing();
+  renderStatus();
   if(!lastResult){
-    status.className="status";
-    status.innerHTML='<span class="dot"></span><span>Checking server…</span>';
     players.innerHTML='<span class="empty">Loading player list…</span>';
-  }else{
-    status.className=`status ${lastResult.online?"online":"offline"}`;
-    status.innerHTML=`<span class="dot"></span><span>${lastResult.online?"ONLINE":"OFFLINE"} · refreshing</span>`;
   }
   try{
     const controller=new AbortController();
@@ -77,9 +87,11 @@ async function refresh(){
     const online=!!d.online;
     const sourceCheckedAt=Number.isFinite(d.retrieved_at)?new Date(d.retrieved_at):new Date();
     lastResult={online,data:d,checkedAt:new Date(),sourceCheckedAt};
+    lastRequestFailed=false;
+    serverUnavailable=false;
     document.getElementById("app").classList.toggle("online",online);
     document.getElementById("app").classList.toggle("offline",!online);
-    status.innerHTML=`<span class="dot"></span><span>${online?"ONLINE":"OFFLINE"}</span>`;
+    renderStatus();
     const p=d.players||{};
     document.getElementById("count").textContent=online?`${p.online ?? 0}${p.max!=null?"/"+p.max:""}`:"0";
     const names=Array.isArray(p.list)?p.list:[];
@@ -96,15 +108,15 @@ async function refresh(){
     document.getElementById("updated").textContent="Server data checked: "+lastResult.sourceCheckedAt.toLocaleTimeString()+" · provider may cache for up to 1 minute";
   }catch(e){
     if(lastResult){
+      lastRequestFailed=true;
+      renderStatus();
       const age=Math.max(1,Math.floor((Date.now()-lastResult.checkedAt.getTime())/60000));
-      status.className=`status ${lastResult.online?"online":"offline"}`;
-      status.innerHTML=`<span class="dot"></span><span>${lastResult.online?"ONLINE":"OFFLINE"} · showing last result</span>`;
       document.getElementById("updated").textContent=`Refresh failed; last successful check ${age} minute${age===1?"":"s"} ago.`;
     }else{
+      serverUnavailable=true;
+      renderStatus();
       document.getElementById("app").classList.remove("online");
       document.getElementById("app").classList.add("offline");
-      status.className="status offline";
-      status.innerHTML='<span class="dot"></span><span>UNREACHABLE</span>';
       document.getElementById("count").textContent="—";
       players.innerHTML='<span class="empty">Could not retrieve live server data.</span>';
       document.getElementById("updated").textContent="Last check failed: "+new Date().toLocaleTimeString();
@@ -113,6 +125,7 @@ async function refresh(){
     refreshInFlight=false;
     button.disabled=false;
     button.textContent="Refresh now";
+    renderStatus();
   }
 }
 async function refreshPing(){
@@ -123,8 +136,8 @@ async function refreshPing(){
     if(!r.ok) return;
     const d=await r.json();
     if(d.message!=="ok") return;
-    const ping=document.getElementById("ping");
-    ping.textContent=d.server&&Number.isFinite(d.server.ping)?`${Math.round(d.server.ping)} ms`:"—";
+    lastPing=d.server&&Number.isFinite(d.server.ping)?Math.round(d.server.ping):null;
+    renderStatus();
   }catch(e){
     // Keep the last ping if this secondary lookup fails.
   }finally{
