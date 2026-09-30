@@ -16,6 +16,7 @@ h2{font-size:20px;margin:28px 0 12px}.players{display:flex;flex-wrap:wrap;gap:10
 .player-tabs{display:flex;gap:8px;margin:0 0 12px}.player-tab{margin:0;padding:9px 13px;background:#ffffff0d;border:1px solid #ffffff16;color:#aeb3c7}.player-tab[aria-selected="true"]{background:#8d4dff;color:white;border-color:#9a65ff}.player-detail{display:flex;flex-direction:column;gap:3px}.player-detail small{font-size:12px;color:#aeb3c7;font-weight:500}
 .empty{color:#9299ae;padding:12px 0}.meta{color:#7f869b;font-size:13px;margin-top:24px}
 button{display:block;margin:18px auto 0;background:#8d4dff;color:white;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}
+.site-links{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:20px}.site-links a{color:#b99aff;font-size:13px;text-decoration:none}.site-links a:hover{text-decoration:underline}
 @media(max-width:520px){.stats{grid-template-columns:1fr}.card{padding:22px}.status{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px;font-size:16px}.status-main{gap:7px}.dot{width:11px;height:11px}.refresh-inline,.ping-inline{font-size:12px}}
 </style>
 </head>
@@ -37,6 +38,7 @@ button{display:block;margin:18px auto 0;background:#8d4dff;color:white;border:0;
   <div id="players" class="players"><span class="empty">Loading player list…</span></div>
   <div id="offlinePlayers" class="players" hidden></div>
   <div id="updated" class="meta"></div>
+  <nav class="site-links" aria-label="Pogger links"><a href="https://pogger-admin.santino-haslacher10-2ee.workers.dev/" target="_blank" rel="noopener noreferrer">Admin login</a></nav>
 </main>
 <script>
 const SERVER = "167.86.104.112:25985";
