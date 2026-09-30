@@ -12,7 +12,7 @@ h1{margin:0 0 6px;font-size:clamp(28px,6vw,44px)}.sub{color:#aeb3c7;margin:0 0 2
 .status{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700}.dot{width:14px;height:14px;border-radius:50%;background:#777;box-shadow:0 0 18px #777}
 .online .dot{background:#42e58a;box-shadow:0 0 18px #42e58a}.offline .dot{background:#ff5b6e;box-shadow:0 0 18px #ff5b6e}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}.box{padding:20px;border-radius:18px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08)}.num{font-size:34px;font-weight:800}.label{color:#9ea5bd;margin-top:4px}
-h2{font-size:20px;margin:28px 0 12px}.players{display:flex;flex-wrap:wrap;gap:10px;min-height:44px}.player{padding:10px 13px;border-radius:12px;background:#8d4dff22;border:1px solid #9a65ff55;font-weight:650}
+h2{font-size:20px;margin:28px 0 12px}.players{display:flex;flex-wrap:wrap;gap:10px;min-height:44px}.player{display:inline-flex;align-items:center;gap:9px;padding:8px 12px;border-radius:12px;background:#8d4dff22;border:1px solid #9a65ff55;font-weight:650}.player-head{width:32px;height:32px;flex:none;image-rendering:pixelated;border-radius:4px}
 .empty{color:#9299ae;padding:12px 0}.meta{color:#7f869b;font-size:13px;margin-top:24px}
 button{margin-top:18px;background:#8d4dff;color:white;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}
 @media(max-width:520px){.stats{grid-template-columns:1fr}.card{padding:22px}}
@@ -71,9 +71,16 @@ async function refresh(){
     const p=d.players||{};
     document.getElementById("count").textContent=online?`${p.online ?? 0}${p.max!=null?"/"+p.max:""}`:"0";
     const names=Array.isArray(p.list)?p.list:[];
-    const playerNames=names.map(player=>typeof player==="string"?player:(player?.name_clean??player?.name_raw??player?.name)).filter(name=>typeof name==="string"&&name.length>0);
-    players.innerHTML=playerNames.length
-      ? playerNames.map(n=>`<span class="player">${escapeHtml(n)}</span>`).join("")
+    const playerEntries=names.map(player=>({
+      name:typeof player==="string"?player:(player?.name_clean??player?.name_raw??player?.name),
+      uuid:typeof player==="object"?player?.uuid:null
+    })).filter(player=>typeof player.name==="string"&&player.name.length>0);
+    players.innerHTML=playerEntries.length
+      ? playerEntries.map(({name,uuid})=>{
+          const imageId=typeof uuid==="string"&&/^[0-9a-f-]{32,36}$/i.test(uuid)?uuid:name;
+          const headUrl=`https://skinrender.dev/render/${encodeURIComponent(imageId)}/face?size=32`;
+          return `<span class="player"><img class="player-head" src="${headUrl}" alt="" width="32" height="32" loading="lazy" decoding="async" referrerpolicy="no-referrer" aria-hidden="true" onerror="this.remove()"><span>${escapeHtml(name)}</span></span>`;
+        }).join("")
       : `<span class="empty">${online?"No player names returned by the status service.":"Nobody is online."}</span>`;
     document.getElementById("updated").textContent="Server data checked: "+lastResult.sourceCheckedAt.toLocaleTimeString()+" · provider may cache for up to 1 minute";
   }catch(e){
